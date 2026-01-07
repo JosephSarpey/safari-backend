@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   
+  name      String
+  createdAt          DateTime @default(now())
+  failedLoginAttempts Int      @default(0)
+  lockoutUntil       DateTime?
+}
+
+enum UserRole {
+  CUSTOMER
+  COMPANY
+}
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  password          String?   // Nullable for OAuth users who haven't set a password
+  name              String
+  role              UserRole  @default(CUSTOMER)
+  
+  // Company specific fields
+  companyName       String?
+  phoneNumber       String?
+  country           String?
+  
+  gender            String?
+  
+  // OAuth fields
+  googleId          String?   @unique
+  avatar            String?
+
+  // Password Reset
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+  
+  // Lockout fields
+  failedAttempts    Int       @default(0)
+  lockoutUntil      DateTime?
+
+  addresses         Address[]
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model Address {
+  id          String   @id @default(uuid())
+  street      String
+  city        String
+  state       String
+  postalCode  String
+  country     String
+  isDefault   Boolean  @default(false)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+}
