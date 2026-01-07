@@ -10,10 +10,11 @@ async function bootstrap() {
   
   app.use(helmet());
   app.use(cookieParser());
+  app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
 
   app.enableCors({
-    origin: ['http://localhost:5173', 'http://localhost:5000', 'http://localhost:3000', 'http://localhost:3001'],
+    origin: ['http://localhost:5173', 'http://localhost:5000', 'http://localhost:3000', 'https://safari-coffee.vercel.app', 'https://safari-backend-77ds.onrender.com'],
     credentials: true,
   });
 
