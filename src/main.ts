@@ -14,7 +14,15 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
 
   app.enableCors({
-    origin: ['http://localhost:5173', 'http://localhost:5000', 'http://localhost:3000', 'https://safari-coffee.vercel.app', 'https://safari-backend-77ds.onrender.com'],
+    origin: (origin, callback) => {
+        const allowedOrigins = ['http://localhost:5173', 'http://localhost:5000', 'http://localhost:3000', 'https://safari-coffee.vercel.app', 'https://safari-backend-77ds.onrender.com'];
+        // Allow Vercel previews
+        if (!origin || allowedOrigins.includes(origin) || /^https:\/\/safari-coffee.*\.vercel\.app$/.test(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
   });
 

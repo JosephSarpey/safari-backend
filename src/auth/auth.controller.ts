@@ -25,7 +25,7 @@ export class AuthController {
           maxAge: 24 * 60 * 60 * 1000, // 1 day
         });
 
-        return { user: loginData.user };
+        return { user: loginData.user, access_token: loginData.access_token };
     } catch (e) {
         throw e;
     }
