@@ -50,9 +50,17 @@ model User {
   lockoutUntil      DateTime?
 
   addresses         Address[]
+  chatSessions      ChatSession[]
+  orders            Order[]
 
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+
+  // OTP & Security
+  otpCode           String?
+  otpExpiry         DateTime?
+  isVerified        Boolean   @default(false)
+  lastLoginAt       DateTime?
 }
 
 model Address {
@@ -65,4 +73,79 @@ model Address {
   isDefault   Boolean  @default(false)
   userId      String
   user        User     @relation(fields: [userId], references: [id])
+}
+
+model ChatSession {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  status    String    @default("OPEN") // OPEN, CLOSED, ARCHIVED
+  userId    String?   
+  user      User?     @relation(fields: [userId], references: [id])
+  messages  Message[]
+}
+
+model Message {
+  id            String      @id @default(uuid())
+  createdAt     DateTime    @default(now())
+  text          String
+  sender        String      // "USER" or "AGENT"
+  isBot         Boolean     @default(false)
+  chatSessionId String
+  chatSession   ChatSession @relation(fields: [chatSessionId], references: [id])
+}
+
+model Product {
+  id          String      @id @default(uuid())
+  name        String
+  description String
+  price       Float
+  stock       Int
+  image       String
+  category    String      // "Gourmet", "Artisan", "Rich Brew"
+  roast       String      // "Medium", "Dark"
+  profile     String      // Flavor profile e.g. "Fruity, Floral"
+  origin      String
+  weight      String[]    // Array of available weights e.g. ["250g", "500g"]
+  type        String      // "Beans", "Ground", "Both"
+  status      String      // "In Stock", "Low Stock", "Out of Stock"
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  orderItems  OrderItem[]
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  total       Float
+  status      String      // "Pending", "Processing", "Completed", "Cancelled"
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  userId      String?
+  user        User?       @relation(fields: [userId], references: [id])
+  items       OrderItem[]
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  quantity  Int
+  price     Float
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model BlogPost {
+  id        String   @id @default(uuid())
+  title     String
+  date      DateTime @default(now())
+  author    String
+  image     String
+  excerpt   String
+  content   String
+  tags      String[]
+  category  String
+  status    String   // "Published", "Draft"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

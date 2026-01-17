@@ -42,6 +42,21 @@ export class AuthController {
     return this.authService.register(signUpDto);
   }
 
+  @Post('verify-otp')
+  async verifyOtp(@Body() body: { email: string, otp: string }, @Res({ passthrough: true }) res: Response) {
+      const loginData = await this.authService.verifyOtp(body.email, body.otp);
+      
+      res.cookie('access_token', loginData.access_token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+          path: '/',
+          maxAge: 24 * 60 * 60 * 1000, // 1 day
+      });
+
+      return { user: loginData.user, access_token: loginData.access_token };
+  }
+
   @Get('google')
   @UseGuards(AuthGuard('google'))
   async googleAuth(@Req() req) {}
@@ -68,8 +83,8 @@ export class AuthController {
   
   @Post('forgot-password')
   async forgotPassword(@Body() body: { email: string }) {
-      const token = await this.authService.generateResetToken(body.email);
-      return { message: 'If email exists, reset token generated (simulated)', token }; 
+      await this.authService.generateResetToken(body.email);
+      return { message: 'If an account with that email exists, we have sent a password reset link.' }; 
   }
   
   @Post('reset-password')

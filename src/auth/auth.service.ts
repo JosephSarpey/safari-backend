@@ -1,9 +1,10 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { UserService } from '../user/user.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from './email.service';
 
 @Injectable()
 export class AuthService {
@@ -11,6 +12,7 @@ export class AuthService {
     private userService: UserService,
     private jwtService: JwtService,
     private prisma: PrismaService,
+    private emailService: EmailService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
@@ -35,6 +37,39 @@ export class AuthService {
               lockoutUntil: null
           });
       }
+
+      // Check verification status
+      if (!user.isVerified) {
+          await this.generateOtp(user.email);
+          throw new HttpException({
+              message: 'Account not verified. OTP sent to email.',
+              requiresOtp: true,
+              email: user.email,
+              statusCode: 401,
+              error: 'Unauthorized'
+          }, HttpStatus.UNAUTHORIZED);
+      }
+
+      // Check for inactivity (30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      if (!user.lastLoginAt || user.lastLoginAt < thirtyDaysAgo) {
+          await this.generateOtp(user.email);
+          throw new HttpException({
+              message: 'Security check required. OTP sent to email.',
+              requiresOtp: true,
+              email: user.email,
+              statusCode: 401,
+              error: 'Unauthorized'
+          }, HttpStatus.UNAUTHORIZED);
+      }
+
+      // Update last login
+      await this.userService.updateUser(user.id, {
+          lastLoginAt: new Date()
+      });
+
       const { password, ...result } = user;
       return result;
     }
@@ -43,7 +78,7 @@ export class AuthService {
     const newFailedAttempts = (user.failedAttempts || 0) + 1;
     let lockoutUntil: Date | null = null;
     
-    if (newFailedAttempts >= 5) {
+    if (newFailedAttempts >= 3) {
         lockoutUntil = new Date();
         lockoutUntil.setMinutes(lockoutUntil.getMinutes() + 5); // Lock for 5 minutes
     }
@@ -79,14 +114,70 @@ export class AuthService {
     // Remove taxId if present (deprecated) and ensure other fields are passed
     const { taxId, ...userData } = registrationData;
     
-    return this.userService.createUser(userData);
+    // Create user with isVerified: false
+    const newUser = await this.userService.createUser({
+        ...userData,
+        isVerified: false
+    });
+
+    // Generate and send OTP
+    await this.generateOtp(newUser.email);
+
+    return { message: 'Registration successful. Please verify your email.' };
+  }
+
+  async generateOtp(email: string) {
+      const user = await this.userService.findUserByEmail(email);
+      if (!user) return;
+
+      const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      let otp = '';
+      for (let i = 0; i < 6; i++) {
+        otp += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      const expiry = new Date();
+      expiry.setMinutes(expiry.getMinutes() + 10);
+
+      await this.userService.updateUser(user.id, {
+          otpCode: otp,
+          otpExpiry: expiry
+      });
+
+      try {
+          await this.emailService.sendOtpEmail(user.email, otp);
+      } catch (error) {
+          console.error('Failed to send OTP email', error);
+          // Don't block flow, but log error
+      }
+  }
+
+  async verifyOtp(email: string, otp: string) {
+      const user = await this.userService.findUserByEmail(email);
+      
+      if (!user) {
+          throw new BadRequestException('User not found');
+      }
+
+      if (user.otpCode !== otp || !user.otpExpiry || user.otpExpiry < new Date()) {
+          throw new BadRequestException('Invalid or expired OTP');
+      }
+
+      // Verify success
+      await this.userService.updateUser(user.id, {
+          otpCode: null,
+          otpExpiry: null,
+          isVerified: true,
+          lastLoginAt: new Date()
+      });
+
+      // Login user
+      return this.login(user);
   }
 
   async generateResetToken(email: string) {
-      // TODO: Implement actual email sending
       const user = await this.userService.findUserByEmail(email);
       if (!user) {
-          return null; // Don't reveal user existence
+          return null; 
       }
       
       const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -98,7 +189,14 @@ export class AuthService {
           resetTokenExpiry: expiry
       });
       
-      return token; 
+      try {
+        await this.emailService.sendPasswordResetEmail(user.email, token);
+      } catch (error) {
+          console.error('Failed to send email', error);
+          throw new BadRequestException('Failed to send reset email');
+      }
+
+      return true; 
   }
 
   async resetPassword(token: string, newPassword: string) {

@@ -24,11 +24,9 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   @Patch('profile')
   async updateProfile(@Request() req, @Body() updateData: any) {
-      // Prevent updating sensitive fields directly if needed, for now allow all
-      // In a real app we'd use DTOs to whitelist
       const user = await this.userService.updateUser(req.user.userId, updateData);
       if (!user) {
-          throw new NotFoundException('User not found'); // Should not happen if guard passes but good for safety
+          throw new NotFoundException('User not found'); 
       }
       const { password, ...result } = user;
       return result;
@@ -43,7 +41,7 @@ export class UserController {
       return { message: 'Password updated successfully' };
     } catch (e) {
       if (e.message === 'Invalid current password') {
-        throw new NotFoundException('Invalid current password'); // or BadRequestException
+        throw new NotFoundException('Invalid current password'); 
       }
       throw e;
     }
