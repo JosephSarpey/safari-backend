@@ -1,5 +1,4 @@
 import { Controller, Get, Request, UseGuards, Patch, Post, Body, NotFoundException } from '@nestjs/common';
-import { SkipThrottle } from '@nestjs/throttler';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -7,7 +6,6 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @SkipThrottle()
   @UseGuards(JwtAuthGuard)
   @Get('profile')
   async getProfile(@Request() req) {

@@ -15,7 +15,7 @@ import { EmailService } from './email.service';
     PassportModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'fallbackSecret',
-      signOptions: { expiresIn: '15m' },
+      signOptions: { expiresIn: '60m' },
     }),
   ],
   providers: [AuthService, JwtStrategy, GoogleStrategy, PrismaService, EmailService],
