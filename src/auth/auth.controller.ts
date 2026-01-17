@@ -34,14 +34,23 @@ export class AuthController {
 
   @Post('logout')
   async logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('refresh_token');
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      path: '/',
+    });
     return { message: 'Logged out successfully' };
   }
 
   @SkipThrottle()
   @Post('refresh')
   async refresh(@Req() req, @Res({ passthrough: true }) res: Response) {
-      // The cookie-parser middleware should populate req.cookies
+      // Debug: log all cookies received
+      console.log('[Auth Debug] Cookies received:', req.cookies);
+      console.log('[Auth Debug] NODE_ENV:', process.env.NODE_ENV);
+      
       const refreshToken = req.cookies['refresh_token'];
       if (!refreshToken) {
           throw new UnauthorizedException('No refresh token found');
