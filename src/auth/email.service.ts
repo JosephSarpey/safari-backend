@@ -1,20 +1,38 @@
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class EmailService {
   private transporter: nodemailer.Transporter;
+  private readonly logger = new Logger(EmailService.name);
 
   constructor() {
+    this.logger.log(`Initializing email service with host: ${process.env.SMTP_HOST}, port: ${process.env.SMTP_PORT}`);
+    
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT) || 587,
-      secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+      secure: process.env.SMTP_SECURE === 'true',
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      // Add timeouts and pooling for production reliability
+      connectionTimeout: 30000, // 30 seconds
+      greetingTimeout: 30000,
+      socketTimeout: 30000,
+      pool: true,
+      maxConnections: 5,
+    });
+
+    // Verify connection on startup
+    this.transporter.verify((error, success) => {
+      if (error) {
+        this.logger.error(`SMTP connection verification failed: ${error.message}`, error.stack);
+      } else {
+        this.logger.log('SMTP server connection verified successfully');
+      }
     });
   }
 
@@ -37,7 +55,16 @@ export class EmailService {
       `,
     };
 
-    return this.transporter.sendMail(mailOptions);
+    try {
+      this.logger.log(`Attempting to send password reset email to: ${to}`);
+      const result = await this.transporter.sendMail(mailOptions);
+      this.logger.log(`Password reset email sent successfully. MessageId: ${result.messageId}`);
+      return result;
+    } catch (error: any) {
+      this.logger.error(`Failed to send password reset email to ${to}. Error: ${error.message}`, error.stack);
+      this.logger.error(`SMTP Error Code: ${error.code}, Response: ${error.response}`);
+      throw error;
+    }
   }
 
   async sendOtpEmail(to: string, otp: string) {
