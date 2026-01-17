@@ -1,4 +1,5 @@
 import { Controller, Post, UseGuards, Request, Body, Get, Req, Res, UnauthorizedException } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -17,12 +18,12 @@ export class AuthController {
         }
         const loginData = await this.authService.login(validUser);
         
-        res.cookie('access_token', loginData.access_token, {
+        res.cookie('refresh_token', loginData.refresh_token, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
           path: '/',
-          maxAge: 24 * 60 * 60 * 1000, // 1 day
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
 
         return { user: loginData.user, access_token: loginData.access_token };
@@ -33,8 +34,31 @@ export class AuthController {
 
   @Post('logout')
   async logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('access_token');
+    res.clearCookie('refresh_token');
     return { message: 'Logged out successfully' };
+  }
+
+  @SkipThrottle()
+  @Post('refresh')
+  async refresh(@Req() req, @Res({ passthrough: true }) res: Response) {
+      // The cookie-parser middleware should populate req.cookies
+      const refreshToken = req.cookies['refresh_token'];
+      if (!refreshToken) {
+          throw new UnauthorizedException('No refresh token found');
+      }
+
+      const loginData = await this.authService.refresh(refreshToken);
+
+      // Rotate refresh token
+      res.cookie('refresh_token', loginData.refresh_token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+          path: '/',
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
+      return { access_token: loginData.access_token, user: loginData.user };
   }
 
   @Post('signup')
@@ -46,12 +70,12 @@ export class AuthController {
   async verifyOtp(@Body() body: { email: string, otp: string }, @Res({ passthrough: true }) res: Response) {
       const loginData = await this.authService.verifyOtp(body.email, body.otp);
       
-      res.cookie('access_token', loginData.access_token, {
+      res.cookie('refresh_token', loginData.refresh_token, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
           path: '/',
-          maxAge: 24 * 60 * 60 * 1000, // 1 day
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
 
       return { user: loginData.user, access_token: loginData.access_token };
@@ -70,15 +94,16 @@ export class AuthController {
       const targetPath = data.user.role === 'COMPANY' ? '/account/company' : '/account/user';
       
     
-      res.cookie('access_token', data.access_token, {
+      res.cookie('refresh_token', data.refresh_token, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
           path: '/',
-          maxAge: 24 * 60 * 60 * 1000,
+          maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
-      res.redirect(`${frontendUrl}${targetPath}?token=${data.access_token}`);
+      // Redirect without token in URL, frontend will init session via refresh endpoint
+      res.redirect(`${frontendUrl}${targetPath}`);
   }
   
   @Post('forgot-password')

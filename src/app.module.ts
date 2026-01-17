@@ -10,6 +10,7 @@ import { AddressModule } from './address/address.module';
 import { ChatModule } from './chat/chat.module';
 import { BlogModule as PublicBlogModule } from './blog/blog.module';
 import { ProductModule as PublicProductModule } from './product/product.module';
+import { CacheModule } from './cache/cache.module';
 
 
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -25,6 +26,7 @@ import { DashboardModule } from './admin/dashboard/dashboard.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    CacheModule,
     UserModule,
     AuthModule,
     AdminAuthModule,

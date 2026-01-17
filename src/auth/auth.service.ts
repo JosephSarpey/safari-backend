@@ -91,10 +91,15 @@ export class AuthService {
     return null;
   }
 
+
   async login(user: any) {
     const payload = { email: user.email, sub: user.id, role: user.role };
+    const accessToken = this.jwtService.sign(payload);
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: accessToken,
+      refresh_token: refreshToken,
       user: {
         id: user.id,
         email: user.email,
@@ -232,5 +237,21 @@ export class AuthService {
       throw new BadRequestException('No user from google');
     }
     return this.login(req.user);
+  }
+
+  async refresh(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken);
+      const user = await this.userService.findUserByEmail(payload.email);
+
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+      
+      // Re-issue both tokens (rotating refresh token)
+      return this.login(user);
+    } catch (e) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
   }
 }
