@@ -109,6 +109,7 @@ model Product {
   weight      String[]    // Array of available weights e.g. ["250g", "500g"]
   type        String      // "Beans", "Ground", "Both"
   status      String      // "In Stock", "Low Stock", "Out of Stock"
+  additionalInfo String?  // Optional additional product information
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   orderItems  OrderItem[]

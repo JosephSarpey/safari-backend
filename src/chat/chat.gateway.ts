@@ -10,7 +10,7 @@ import { ChatService } from './chat.service';
 
 @WebSocketGateway({
   cors: {
-    origin: '*', // Allow all for dev, restrict in prod
+    origin: '*',
   },
 })
 export class ChatGateway {

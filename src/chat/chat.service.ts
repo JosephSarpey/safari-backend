@@ -74,7 +74,9 @@ export class ChatService {
                - "Rich Brew" (Dark Roast): Bold, intense, chocolatey.
             4. **Conciseness**: Keep answers short (max 2-3 sentences) unless detailed advice is asked.
             5. **Boundaries**: If you don't know something, admit it politely. Do not invent products.
-            6. **Orders**: If asked about order status, ask for the Order ID.` }]
+            6. **Orders**: If asked about order status, ask for the Order ID.
+            7. **Coffee Education**: You should enthusiastically provide step-by-step brewing guides, preparation methods (French press, pour-over, espresso, cold brew, etc.), coffee storage tips, grind size recommendations, and any other educational content about coffee. When asked "how to prepare" or "teach me", provide clear and helpful instructions. For longer answers, use numbered steps for clarity.
+            8. **Helpful Responses**: Always try to be helpful. If a user asks a coffee-related question, answer it even if it doesn't directly relate to our products. Share your coffee expertise generously to build trust with potential customers.` }]
             },
             {
                 role: "model",
@@ -83,7 +85,7 @@ export class ChatService {
             ...chatHistory
         ],
         generationConfig: {
-          maxOutputTokens: 150,
+          maxOutputTokens: 500,
         },
       });
 

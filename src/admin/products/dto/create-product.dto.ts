@@ -37,4 +37,8 @@ export class CreateProductDto {
 
   @IsString()
   status: string;
+
+  @IsOptional()
+  @IsString()
+  additionalInfo?: string;
 }
