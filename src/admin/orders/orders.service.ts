@@ -134,8 +134,13 @@ export class OrdersService {
       });
 
       // Send confirmation email
-      if (order.user?.email) {
-        await this.emailService.sendOrderConfirmationEmail(order.user.email, order);
+      try {
+        if (order.user?.email) {
+          await this.emailService.sendOrderConfirmationEmail(order.user.email, order);
+        }
+      } catch (emailError) {
+        console.error('Failed to send order confirmation email:', emailError);
+        // Do not throw error here, as order is already created successfully
       }
 
       return order;
