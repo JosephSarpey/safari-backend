@@ -1,7 +1,24 @@
 import { Controller, Post, UseGuards, Request, Body, Get, Req, Res, UnauthorizedException } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Response, CookieOptions } from 'express';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
+
+// Detect production environment more reliably
+const isProduction = () => {
+  // Check multiple indicators for production environment
+  return process.env.NODE_ENV === 'production' || 
+         process.env.FRONTEND_URL?.includes('vercel.app') ||
+         process.env.FRONTEND_URL?.includes('https://');
+};
+
+// Reusable cookie configuration
+const getCookieOptions = (): CookieOptions => ({
+  httpOnly: true,
+  secure: isProduction(),
+  sameSite: isProduction() ? 'none' : 'lax',
+  path: '/',
+  maxAge: 24 * 60 * 60 * 1000, // 1 day
+});
 
 @Controller('auth')
 export class AuthController {
@@ -17,13 +34,7 @@ export class AuthController {
         }
         const loginData = await this.authService.login(validUser);
         
-        res.cookie('access_token', loginData.access_token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-          path: '/',
-          maxAge: 24 * 60 * 60 * 1000, // 1 day
-        });
+        res.cookie('access_token', loginData.access_token, getCookieOptions());
 
         return { user: loginData.user, access_token: loginData.access_token };
     } catch (e) {
@@ -33,7 +44,9 @@ export class AuthController {
 
   @Post('logout')
   async logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('access_token');
+    // Must use same cookie options for clearCookie to work in cross-origin setup
+    const { maxAge, ...clearOptions } = getCookieOptions();
+    res.clearCookie('access_token', clearOptions);
     return { message: 'Logged out successfully' };
   }
 
@@ -46,13 +59,7 @@ export class AuthController {
   async verifyOtp(@Body() body: { email: string, otp: string }, @Res({ passthrough: true }) res: Response) {
       const loginData = await this.authService.verifyOtp(body.email, body.otp);
       
-      res.cookie('access_token', loginData.access_token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-          path: '/',
-          maxAge: 24 * 60 * 60 * 1000, // 1 day
-      });
+      res.cookie('access_token', loginData.access_token, getCookieOptions());
 
       return { user: loginData.user, access_token: loginData.access_token };
   }
@@ -67,18 +74,13 @@ export class AuthController {
       const data = await this.authService.googleLogin(req);
       
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      const targetPath = data.user.role === 'COMPANY' ? '/account/company' : '/account/user';
       
-    
-      res.cookie('access_token', data.access_token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-          path: '/',
-          maxAge: 24 * 60 * 60 * 1000,
-      });
+      // Set httpOnly cookie with the access token
+      res.cookie('access_token', data.access_token, getCookieOptions());
 
-      res.redirect(`${frontendUrl}${targetPath}?token=${data.access_token}`);
+      // Redirect to the frontend callback page
+      // The callback page will fetch the user profile using the cookie
+      res.redirect(`${frontendUrl}/auth/callback`);
   }
   
   @Post('forgot-password')
