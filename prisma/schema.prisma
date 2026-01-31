@@ -116,14 +116,20 @@ model Product {
 }
 
 model Order {
-  id          String      @id @default(uuid())
-  total       Float
-  status      String      // "Pending", "Processing", "Completed", "Cancelled"
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  userId      String?
-  user        User?       @relation(fields: [userId], references: [id])
-  items       OrderItem[]
+  id                String      @id @default(uuid())
+  total             Float
+  status            String      // "Pending", "Processing", "Completed", "Cancelled"
+  
+  // Payment tracking fields
+  paymentIntentId   String?     @unique
+  paymentStatus     String?     // "pending", "succeeded", "failed", "canceled"
+  paymentMethod     String?     // "stripe", "bank", "check", etc.
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  userId            String?
+  user              User?       @relation(fields: [userId], references: [id])
+  items             OrderItem[]
 }
 
 model OrderItem {

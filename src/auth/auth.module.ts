@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UserModule } from '../user/user.module';
@@ -11,7 +11,7 @@ import { EmailService } from './email.service';
 
 @Module({
   imports: [
-    UserModule,
+    forwardRef(() => UserModule),
     PassportModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'fallbackSecret',
@@ -20,7 +20,7 @@ import { EmailService } from './email.service';
   ],
   providers: [AuthService, JwtStrategy, GoogleStrategy, PrismaService, EmailService],
   controllers: [AuthController],
-  exports: [AuthService],
+  exports: [AuthService, EmailService],
 })
 export class AuthModule {}
 

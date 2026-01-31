@@ -33,4 +33,12 @@ export class ProductsController {
   remove(@Param('id') id: string) {
     return this.productsService.remove(id);
   }
+
+  @Post('check-stock')
+  checkStock(@Body() checkStockDto: { productId: string; quantity: number }) {
+    return this.productsService.checkStockAvailability(
+      checkStockDto.productId,
+      checkStockDto.quantity
+    );
+  }
 }

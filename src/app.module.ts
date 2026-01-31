@@ -21,6 +21,7 @@ import { OrdersModule } from './admin/orders/orders.module';
 import { CustomersModule } from './admin/customers/customers.module';
 import { BlogModule } from './admin/blog/blog.module';
 import { DashboardModule } from './admin/dashboard/dashboard.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { DashboardModule } from './admin/dashboard/dashboard.module';
     CustomersModule,
     BlogModule,
     DashboardModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [

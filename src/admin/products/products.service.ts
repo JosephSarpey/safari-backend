@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, BadRequestException } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -60,5 +60,88 @@ export class ProductsService {
     if (id) {
       await this.cacheManager.del(`${CACHE_KEY_PREFIX}${id}`);
     }
+  }
+
+  /**
+   * Update product status based on stock level
+   * Low Stock: <= 10 units
+   * Out of Stock: 0 units
+   * In Stock: > 10 units
+   */
+  private async updateStockStatus(productId: string, stock: number) {
+    let status: string;
+    
+    if (stock === 0) {
+      status = 'Out of Stock';
+    } else if (stock <= 10) {
+      status = 'Low Stock';
+    } else {
+      status = 'In Stock';
+    }
+
+    await this.prisma.product.update({
+      where: { id: productId },
+      data: { status },
+    });
+
+    await this.invalidateCache(productId);
+  }
+
+  /**
+   * Decrease stock for a product (used when orders are placed)
+   */
+  async decreaseStock(productId: string, quantity: number) {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      throw new BadRequestException(`Product ${productId} not found`);
+    }
+
+    if (product.stock < quantity) {
+      throw new BadRequestException(
+        `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${quantity}`
+      );
+    }
+
+    const newStock = product.stock - quantity;
+    
+    await this.prisma.product.update({
+      where: { id: productId },
+      data: { stock: newStock },
+    });
+
+    // Update status based on new stock level
+    await this.updateStockStatus(productId, newStock);
+
+    console.log(`[ProductsService] Stock decreased for ${product.name}: ${product.stock} -> ${newStock}`);
+  }
+
+  /**
+   * Check if sufficient stock is available for a product
+   */
+  async checkStockAvailability(productId: string, quantity: number) {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      return {
+        available: false,
+        stock: 0,
+        message: 'Product not found',
+      };
+    }
+
+    const isAvailable = product.stock >= quantity;
+    
+    return {
+      available: isAvailable,
+      stock: product.stock,
+      message: isAvailable 
+        ? 'Stock available' 
+        : `Insufficient stock. Available: ${product.stock}, Requested: ${quantity}`,
+    };
   }
 }

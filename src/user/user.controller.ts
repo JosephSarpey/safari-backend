@@ -1,10 +1,15 @@
-import { Controller, Get, Request, UseGuards, Patch, Post, Body, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Request, UseGuards, Patch, Post, Body, NotFoundException, Param, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { OrdersService } from '../admin/orders/orders.service';
 
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    @Inject(forwardRef(() => OrdersService))
+    private readonly ordersService: OrdersService,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
@@ -45,5 +50,31 @@ export class UserController {
       }
       throw e;
     }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('orders')
+  async getOrders(@Request() req) {
+    // Fetch all orders for the authenticated user
+    const orders = await this.ordersService.findAll();
+    // Filter orders for this specific user
+    return orders.filter(order => order.userId === req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('orders/:id')
+  async getOrder(@Request() req, @Param('id') id: string) {
+    const order = await this.ordersService.findOne(id);
+    
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // Ensure the order belongs to the authenticated user
+    if (order.userId !== req.user.userId) {
+      throw new ForbiddenException('You do not have permission to view this order');
+    }
+
+    return order;
   }
 }
