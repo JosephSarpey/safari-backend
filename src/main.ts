@@ -4,11 +4,14 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  
+  app.set('trust proxy', 1);
   
   app.use(helmet());
   app.use(cookieParser());
@@ -25,10 +28,11 @@ async function bootstrap() {
         ...(process.env.ALLOWED_ORIGINS?.split(',') || []),
       ];
       
-      // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
       
-      if (allowedOrigins.includes(origin) || /^https:\/\/safari-coffee.*\.vercel\.app$/.test(origin)) {
+      if (allowedOrigins.includes(origin) || 
+          /^https:\/\/safari-coffee.*\.vercel\.app$/.test(origin) ||
+          /^https:\/\/.*safari-roast\.com$/.test(origin)) {
         return callback(null, true);
       }
       
