@@ -84,6 +84,12 @@ export class OrdersService {
     userId?: string;
   }) {
     try {
+      console.log('[OrdersService] Starting order creation from payment:', {
+        paymentIntentId: data.paymentIntentId,
+        itemsCount: data.items.length,
+        userId: data.userId,
+      });
+
       // First, validate stock availability for all items
       for (const item of data.items) {
         const stockCheck = await this.productsService.checkStockAvailability(
@@ -92,9 +98,12 @@ export class OrdersService {
         );
 
         if (!stockCheck.available) {
+          console.error('[OrdersService] Stock validation failed:', stockCheck.message);
           throw new BadRequestException(stockCheck.message);
         }
       }
+
+      console.log('[OrdersService] Stock validation passed, starting transaction');
 
       // Use transaction to ensure atomicity of order creation and stock updates
       const order = await this.prisma.$transaction(async (tx) => {
@@ -125,21 +134,68 @@ export class OrdersService {
           },
         });
 
-        // Decrease stock for each item
+        console.log('[OrdersService] Order created in transaction:', newOrder.id);
+
+        // Decrease stock for each item using the transaction client
         for (const item of data.items) {
-          await this.productsService.decreaseStock(item.productId, item.quantity);
+          const product = await tx.product.findUnique({
+            where: { id: item.productId },
+          });
+
+          if (!product) {
+            throw new BadRequestException(`Product ${item.productId} not found`);
+          }
+
+          if (product.stock < item.quantity) {
+            throw new BadRequestException(
+              `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`
+            );
+          }
+
+          const newStock = product.stock - item.quantity;
+
+          // Update stock
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: newStock },
+          });
+
+          // Update status based on new stock level
+          let status: string;
+          if (newStock === 0) {
+            status = 'Out of Stock';
+          } else if (newStock <= 10) {
+            status = 'Low Stock';
+          } else {
+            status = 'In Stock';
+          }
+
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { status },
+          });
+
+          console.log(`[OrdersService] Stock decreased for ${product.name}: ${product.stock} -> ${newStock}`);
         }
 
         return newOrder;
       });
 
+      console.log('[OrdersService] Transaction completed successfully');
+
+      // Invalidate product cache after successful order
+      for (const item of data.items) {
+        await this.productsService['invalidateCache'](item.productId);
+      }
+
       // Send confirmation email
       try {
         if (order.user?.email) {
+          console.log('[OrdersService] Sending confirmation email to:', order.user.email);
           await this.emailService.sendOrderConfirmationEmail(order.user.email, order);
         }
       } catch (emailError) {
-        console.error('Failed to send order confirmation email:', emailError);
+        console.error('[OrdersService] Failed to send order confirmation email:', emailError);
         // Do not throw error here, as order is already created successfully
       }
 
@@ -147,10 +203,15 @@ export class OrdersService {
     } catch (error: any) {
       // If unique constraint failed, order already exists - fetch and return it
       if (error.code === 'P2002' && error.meta?.target?.includes('paymentIntentId')) {
-        console.log(`Order already exists for payment intent ${data.paymentIntentId}, returning existing order`);
+        console.log(`[OrdersService] Order already exists for payment intent ${data.paymentIntentId}, returning existing order`);
         return this.findByPaymentIntent(data.paymentIntentId);
       }
       // Re-throw other errors (including stock validation errors)
+      console.error('[OrdersService] Error creating order from payment:', {
+        message: error.message,
+        code: error.code,
+        paymentIntentId: data.paymentIntentId,
+      });
       throw error;
     }
   }

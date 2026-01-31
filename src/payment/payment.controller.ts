@@ -25,22 +25,43 @@ export class PaymentController {
 
   @Post('create-order')
   async createOrderFromPayment(@Body() createOrderDto: CreateOrderFromPaymentDto) {
-    // Check if order already exists for this payment intent
-    const existingOrder = await this.ordersService.findByPaymentIntent(
-      createOrderDto.paymentIntentId
-    );
+    try {
+      console.log('[PaymentController] Creating order from payment:', {
+        paymentIntentId: createOrderDto.paymentIntentId,
+        total: createOrderDto.total,
+        userId: createOrderDto.userId,
+        itemsCount: createOrderDto.items?.length,
+      });
 
-    if (existingOrder) {
-      return existingOrder;
+      // Check if order already exists for this payment intent
+      const existingOrder = await this.ordersService.findByPaymentIntent(
+        createOrderDto.paymentIntentId
+      );
+
+      if (existingOrder) {
+        console.log('[PaymentController] Order already exists, returning existing order');
+        return existingOrder;
+      }
+
+      // Create new order
+      console.log('[PaymentController] Creating new order');
+      const order = await this.ordersService.createFromPayment({
+        paymentIntentId: createOrderDto.paymentIntentId,
+        total: createOrderDto.total,
+        items: createOrderDto.items,
+        userId: createOrderDto.userId,
+      });
+
+      console.log('[PaymentController] Order created successfully:', order?.id);
+      return order;
+    } catch (error) {
+      console.error('[PaymentController] Error creating order:', {
+        message: error.message,
+        stack: error.stack,
+        paymentIntentId: createOrderDto.paymentIntentId,
+      });
+      throw error;
     }
-
-    // Create new order
-    return this.ordersService.createFromPayment({
-      paymentIntentId: createOrderDto.paymentIntentId,
-      total: createOrderDto.total,
-      items: createOrderDto.items,
-      userId: createOrderDto.userId,
-    });
   }
 
   @Post('webhook')
