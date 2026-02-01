@@ -196,17 +196,24 @@ export class OrdersService {
         }
       } catch (emailError) {
         console.error('[OrdersService] Failed to send order confirmation email:', emailError);
-        // Do not throw error here, as order is already created successfully
+      }
+
+      // Send notification to business owner
+      try {
+        console.log('[OrdersService] Sending order notification to business owner');
+        await this.emailService.sendNewOrderNotificationToOwner(order);
+      } catch (emailError) {
+        console.error('[OrdersService] Failed to send order notification to owner:', emailError);
+        
       }
 
       return order;
     } catch (error: any) {
-      // If unique constraint failed, order already exists - fetch and return it
+      
       if (error.code === 'P2002' && error.meta?.target?.includes('paymentIntentId')) {
         console.log(`[OrdersService] Order already exists for payment intent ${data.paymentIntentId}, returning existing order`);
         return this.findByPaymentIntent(data.paymentIntentId);
       }
-      // Re-throw other errors (including stock validation errors)
       console.error('[OrdersService] Error creating order from payment:', {
         message: error.message,
         code: error.code,

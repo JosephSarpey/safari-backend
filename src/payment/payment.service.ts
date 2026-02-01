@@ -26,15 +26,11 @@ export class PaymentService {
     try {
       const { amount, currency, metadata } = createPaymentIntentDto;
 
-      // Validate amount
       if (!amount || amount <= 0 || isNaN(amount)) {
         throw new BadRequestException(`Invalid amount: ${amount}. Amount must be a positive number.`);
       }
 
-      // Amount should be in cents
       const amountInCents = Math.round(amount * 100);
-
-      // Convert metadata to Stripe-compatible format (only string, number, or null values)
       const stripeMetadata: Record<string, string | number | null> = {};
       if (metadata) {
         if (metadata.customerEmail) {

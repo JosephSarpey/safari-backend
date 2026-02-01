@@ -18,6 +18,11 @@ export class EmailService {
     this.resend = new Resend(apiKey);
     this.fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@safari-roast.com';
     
+    // Check for distributor email env var
+    if (!process.env.SAFARI_DISTRIBUTOR_EMAIL) {
+      this.logger.warn('SAFARI_DISTRIBUTOR_EMAIL is not set. Order notifications may fail.');
+    }
+
     this.logger.log(`Email service initialized with Resend. From email: ${this.fromEmail}`);
   }
 
@@ -157,6 +162,70 @@ export class EmailService {
       return result.data;
     } catch (error: any) {
       this.logger.error(`Failed to send order confirmation email to ${to}. Error: ${error.message}`, error.stack);
+    }
+  }
+
+  async sendNewOrderNotificationToOwner(orderDetails: any) {
+    const ownerEmail = process.env.OWNER_EMAIL;
+    
+    if (!ownerEmail) {
+      this.logger.error('OWNER_EMAIL environment variable is not defined');
+      return;
+    }
+
+    try {
+      this.logger.log(`Sending new order notification to owner: ${ownerEmail}`);
+      
+      const itemsListHtml = orderDetails.items.map((item: any) => 
+        `<li style="margin-bottom: 10px; padding: 10px; background-color: #f9f9f9; border-left: 3px solid #D4AF37;">
+          <strong>${item.product.name}</strong><br/>
+          Quantity: ${item.quantity} | Price: $${item.price.toFixed(2)} | Subtotal: <strong>$${(item.price * item.quantity).toFixed(2)}</strong>
+        </li>`
+      ).join('');
+
+      const itemsListText = orderDetails.items.map((item: any) => 
+        `- ${item.product.name} | Qty: ${item.quantity} | Price: $${item.price.toFixed(2)} | Subtotal: $${(item.price * item.quantity).toFixed(2)}`
+      ).join('\n');
+
+      const customerInfo = orderDetails.user 
+        ? `Customer: ${orderDetails.user.name} (${orderDetails.user.email})`
+        : 'Guest Customer';
+
+      const text = `New Order Received\n\nOrder ID: ${orderDetails.id}\n${customerInfo}\nTotal: $${orderDetails.total.toFixed(2)}\nPayment Status: ${orderDetails.paymentStatus}\nOrder Status: ${orderDetails.status}\n\nItems:\n${itemsListText}`;
+      
+      const htmlContent = `
+          <h2 style="color: #D4AF37;">New Order Received</h2>
+          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Order ID:</strong> ${orderDetails.id}</p>
+            <p style="margin: 5px 0;"><strong>${customerInfo}</strong></p>
+            <p style="margin: 5px 0;"><strong>Payment Status:</strong> <span style="color: green;">${orderDetails.paymentStatus}</span></p>
+            <p style="margin: 5px 0;"><strong>Order Status:</strong> ${orderDetails.status}</p>
+            <p style="margin: 5px 0; font-size: 20px;"><strong>Total:</strong> <span style="color: #D4AF37;">$${orderDetails.total.toFixed(2)}</span></p>
+          </div>
+          <h3>Order Items:</h3>
+          <ul style="list-style-type: none; padding-left: 0;">${itemsListHtml}</ul>
+          <p style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+            <em>This is an automated notification. Please log in to the admin panel to process this order.</em>
+          </p>
+      `;
+
+      const result = await this.resend.emails.send({
+        from: `Safari Roast <${this.fromEmail}>`,
+        to: [ownerEmail],
+        subject: `New Order #${orderDetails.id} - $${orderDetails.total.toFixed(2)}`,
+        html: this.getEmailTemplate('New Order Received', htmlContent),
+        text: text,
+      });
+
+      if (result.error) {
+        this.logger.error(`Resend API error: ${result.error.message}`);
+      } else {
+        this.logger.log(`New order notification sent to owner. ID: ${result.data?.id}`);
+      }
+      return result.data;
+    } catch (error: any) {
+      this.logger.error(`Failed to send new order notification to owner. Error: ${error.message}`, error.stack);
+      // Don't throw error - we don't want to fail order creation if notification fails
     }
   }
 

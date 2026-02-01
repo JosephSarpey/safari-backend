@@ -37,6 +37,23 @@ export class ProductsService {
   }
 
   async update(id: string, updateProductDto: UpdateProductDto) {
+    
+    if (updateProductDto.stock !== undefined) {
+      const stock = updateProductDto.stock;
+      let status: string;
+      
+      if (stock === 0) {
+        status = 'Out of Stock';
+      } else if (stock <= 10) {
+        status = 'Low Stock';
+      } else {
+        status = 'In Stock';
+      }
+      
+      updateProductDto.status = status;
+      console.log(`[ProductsService] Auto-updating status for product ${id}: stock=${stock}, status="${status}"`);
+    }
+
     const product = await this.prisma.product.update({
       where: { id },
       data: updateProductDto,
@@ -66,7 +83,7 @@ export class ProductsService {
    * Update product status based on stock level
    * Low Stock: <= 10 units
    * Out of Stock: 0 units
-   * In Stock: > 10 units
+   * In Stock: > 10 units 
    */
   private async updateStockStatus(productId: string, stock: number) {
     let status: string;
