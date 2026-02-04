@@ -172,6 +172,10 @@ export class AuthService {
       });
 
       // Login user
+      if (user.isVerified) {
+          await this.emailService.sendWelcomeEmail(user.email, user.name);
+      }
+
       return this.login(user);
   }
 

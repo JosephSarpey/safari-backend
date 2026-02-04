@@ -54,6 +54,7 @@ export class PaymentService {
         automatic_payment_methods: {
           enabled: true,
         },
+        receipt_email: metadata?.customerEmail || undefined,
       });
 
       return {

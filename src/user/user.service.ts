@@ -65,4 +65,30 @@ export class UserService {
       data: { password: hashedPassword },
     });
   }
+
+  async deleteUser(userId: string): Promise<void> {
+    await this.prisma.$transaction(async (prisma) => {
+        // 1. Delete user addresses
+        await prisma.address.deleteMany({
+            where: { userId },
+        });
+
+        // 2. Anonymize orders (set userId to null)
+        await prisma.order.updateMany({
+            where: { userId },
+            data: { userId: null },
+        });
+
+        // 3. Anonymize chat sessions (set userId to null)
+        await prisma.chatSession.updateMany({
+            where: { userId },
+            data: { userId: null },
+        });
+
+        // 4. Delete the user
+        await prisma.user.delete({
+            where: { id: userId },
+        });
+    });
+  }
 }

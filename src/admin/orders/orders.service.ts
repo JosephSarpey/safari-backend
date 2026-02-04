@@ -34,6 +34,37 @@ export class OrdersService {
     });
   }
 
+  async findAllByUserId(userId: string, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+    const [orders, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where: { userId },
+        skip,
+        take: limit,
+        include: {
+          user: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.order.count({ where: { userId } }),
+    ]);
+
+    return {
+      data: orders,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
   findOne(id: string) {
     return this.prisma.order.findUnique({
       where: { id },

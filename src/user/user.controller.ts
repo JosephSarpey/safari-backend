@@ -1,4 +1,4 @@
-import { Controller, Get, Request, UseGuards, Patch, Post, Body, NotFoundException, Param, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
+import { Controller, Get, Request, UseGuards, Patch, Post, Body, NotFoundException, Param, ForbiddenException, Inject, forwardRef, Query, Delete } from '@nestjs/common';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OrdersService } from '../admin/orders/orders.service';
@@ -53,12 +53,25 @@ export class UserController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Delete('delete')
+  async deleteAccount(@Request() req) {
+    await this.userService.deleteUser(req.user.userId);
+    return { message: 'Account deleted successfully' };
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('orders')
-  async getOrders(@Request() req) {
-    // Fetch all orders for the authenticated user
-    const orders = await this.ordersService.findAll();
-    // Filter orders for this specific user
-    return orders.filter(order => order.userId === req.user.userId);
+  async getOrders(
+    @Request() req,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    // Fetch paginated orders for the authenticated user efficiently
+    return this.ordersService.findAllByUserId(
+      req.user.userId,
+      Number(page),
+      Number(limit),
+    );
   }
 
   @UseGuards(JwtAuthGuard)

@@ -225,7 +225,7 @@ export class EmailService {
       return result.data;
     } catch (error: any) {
       this.logger.error(`Failed to send new order notification to owner. Error: ${error.message}`, error.stack);
-      // Don't throw error - we don't want to fail order creation if notification fails
+      
     }
   }
 
@@ -259,6 +259,51 @@ export class EmailService {
       return result.data;
     } catch (error: any) {
       this.logger.error(`Failed to send order status email to ${to}. Error: ${error.message}`, error.stack);
+    }
+  }
+
+  async sendWelcomeEmail(to: string, name: string) {
+    try {
+      this.logger.log(`Attempting to send welcome email to: ${to}`);
+
+      const text = `Welcome to Safari Roast!\n\nHi ${name},\n\nThank you for joining Safari Roast. We are thrilled to have you as part of our community.\n\nExplore our premium selection of ethically sourced coffees and experience the true taste of the wild.\n\nVisit our shop: ${process.env.FRONTEND_URL}/shop\n\nWarm regards,\nThe Safari Roast Team`;
+
+      const htmlContent = `
+        <div style="text-align: center;">
+          <h2 style="color: #D4AF37; margin-bottom: 20px;">Welcome to the Pride!</h2>
+          <p style="font-size: 16px;">Hi <strong>${name}</strong>,</p>
+          <p>Thank you for joining <strong>Safari Roast</strong>. We are thrilled to have you start your journey with us.</p>
+          
+          <div style="margin: 30px 0; padding: 20px; background-color: #f9f9f9; border-left: 4px solid #D4AF37;">
+            <p style="font-style: italic; color: #555;">"Experience the untamed flavors of ethically sourced premium coffee."</p>
+          </div>
+
+          <p>Your account is now active. You can browse our collection, manage your orders, and enjoy exclusive member benefits.</p>
+
+          <div style="margin: 40px 0;">
+            <a href="${process.env.FRONTEND_URL}/shop" style="background-color: #D4AF37; color: #000; padding: 14px 28px; text-decoration: none; font-weight: bold; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px;">Start Exploring</a>
+          </div>
+
+          <p style="font-size: 14px; color: #777;">If you have any questions, feel free to reply to this email or contact our support team.</p>
+        </div>
+      `;
+
+      const result = await this.resend.emails.send({
+        from: `Safari Roast <${this.fromEmail}>`,
+        to: [to],
+        subject: 'Welcome to Safari Roast!',
+        html: this.getEmailTemplate('Welcome to Safari Roast', htmlContent),
+        text: text,
+      });
+
+      if (result.error) {
+        this.logger.error(`Resend API error: ${result.error.message}`);
+      } else {
+        this.logger.log(`Welcome email sent successfully. ID: ${result.data?.id}`);
+      }
+      return result.data;
+    } catch (error: any) {
+      this.logger.error(`Failed to send welcome email to ${to}. Error: ${error.message}`, error.stack);      
     }
   }
 }

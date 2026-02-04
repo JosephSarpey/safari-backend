@@ -3,12 +3,14 @@ import { Strategy, VerifyCallback } from 'passport-google-oauth20';
 import { Injectable } from '@nestjs/common';
 import { UserService } from '../user/user.service';
 import { AuthService } from './auth.service';
+import { EmailService } from './email.service';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(
     
-      private userService: UserService
+      private userService: UserService,
+      private emailService: EmailService
   ) {
     super({
       clientID: process.env.GOOGLE_CLIENT_ID || 'client_id',
@@ -46,6 +48,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
             avatar: user.picture,
             role: 'CUSTOMER' 
         });
+
+        // Send welcome email
+        await this.emailService.sendWelcomeEmail(existingUser.email, existingUser.name);
     } else if (!existingUser.googleId) {
         
         await this.userService.updateUser(existingUser.id, {
