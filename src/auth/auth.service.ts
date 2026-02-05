@@ -112,10 +112,9 @@ export class AuthService {
         throw new BadRequestException('User with this email already exists');
     }
     
-    // Remove taxId if present (deprecated) and ensure other fields are passed
     const { taxId, ...userData } = registrationData;
     
-    // Create user with isVerified: false
+    
     const newUser = await this.userService.createUser({
         ...userData,
         isVerified: false
@@ -148,7 +147,6 @@ export class AuthService {
           await this.emailService.sendOtpEmail(user.email, otp);
       } catch (error) {
           console.error('Failed to send OTP email', error);
-          // Don't block flow, but log error
       }
   }
 

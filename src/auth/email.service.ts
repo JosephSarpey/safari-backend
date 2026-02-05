@@ -18,12 +18,23 @@ export class EmailService {
     this.resend = new Resend(apiKey);
     this.fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@safari-roast.com';
     
-    // Check for distributor email env var
-    if (!process.env.SAFARI_DISTRIBUTOR_EMAIL) {
-      this.logger.warn('SAFARI_DISTRIBUTOR_EMAIL is not set. Order notifications may fail.');
+    if (!process.env.OWNER_EMAIL) {
+      this.logger.warn('OWNER_EMAIL is not set. Order notifications may fail.');
     }
 
     this.logger.log(`Email service initialized with Resend. From email: ${this.fromEmail}`);
+  }
+
+  private getFrontendUrl(): string {
+    const url = process.env.FRONTEND_URL;
+    
+    if (process.env.NODE_ENV === 'production') {
+        if (!url || url.includes('localhost')) {
+             return 'https://safari-coffee.vercel.app';
+        }
+    }
+    
+    return url || 'http://localhost:3000';
   }
 
   private getEmailTemplate(title: string, content: string): string {
@@ -51,7 +62,8 @@ export class EmailService {
   }
 
   async sendPasswordResetEmail(to: string, token: string) {
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    const frontendUrl = this.getFrontendUrl();
+    const resetLink = `${frontendUrl}/reset-password?token=${token}`;
     const text = `Password Reset Request\n\nYou requested a password reset for your Safari Coffee account.\nPlease copy and paste the following link into your browser to reset your password:\n${resetLink}\n\nIf you did not request this, please ignore this email.\nThis link will expire in 1 hour.`;
     
     const htmlContent = `
@@ -266,7 +278,8 @@ export class EmailService {
     try {
       this.logger.log(`Attempting to send welcome email to: ${to}`);
 
-      const text = `Welcome to Safari Roast!\n\nHi ${name},\n\nThank you for joining Safari Roast. We are thrilled to have you as part of our community.\n\nExplore our premium selection of ethically sourced coffees and experience the true taste of the wild.\n\nVisit our shop: ${process.env.FRONTEND_URL}/shop\n\nWarm regards,\nThe Safari Roast Team`;
+      const frontendUrl = this.getFrontendUrl();
+      const text = `Welcome to Safari Roast!\n\nHi ${name},\n\nThank you for joining Safari Roast. We are thrilled to have you as part of our community.\n\nExplore our premium selection of ethically sourced coffees and experience the true taste of the wild.\n\nVisit our shop: ${frontendUrl}/shop\n\nWarm regards,\nThe Safari Roast Team`;
 
       const htmlContent = `
         <div style="text-align: center;">
@@ -281,7 +294,7 @@ export class EmailService {
           <p>Your account is now active. You can browse our collection, manage your orders, and enjoy exclusive member benefits.</p>
 
           <div style="margin: 40px 0;">
-            <a href="${process.env.FRONTEND_URL}/shop" style="background-color: #D4AF37; color: #000; padding: 14px 28px; text-decoration: none; font-weight: bold; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px;">Start Exploring</a>
+            <a href="${frontendUrl}/shop" style="background-color: #D4AF37; color: #000; padding: 14px 28px; text-decoration: none; font-weight: bold; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px;">Start Exploring</a>
           </div>
 
           <p style="font-size: 14px; color: #777;">If you have any questions, feel free to reply to this email or contact our support team.</p>

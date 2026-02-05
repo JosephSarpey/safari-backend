@@ -3,21 +3,21 @@ import type { Response, CookieOptions } from 'express';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
 
-// Detect production environment more reliably
+
 const isProduction = () => {
-  // Check multiple indicators for production environment
+  
   return process.env.NODE_ENV === 'production' || 
          process.env.FRONTEND_URL?.includes('vercel.app') ||
          process.env.FRONTEND_URL?.includes('https://');
 };
 
-// Reusable cookie configuration
+
 const getCookieOptions = (): CookieOptions => ({
   httpOnly: true,
   secure: isProduction(),
   sameSite: isProduction() ? 'none' : 'lax',
   path: '/',
-  maxAge: 24 * 60 * 60 * 1000, // 1 day
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 });
 
 @Controller('auth')
@@ -44,7 +44,7 @@ export class AuthController {
 
   @Post('logout')
   async logout(@Res({ passthrough: true }) res: Response) {
-    // Must use same cookie options for clearCookie to work in cross-origin setup
+    
     const { maxAge, ...clearOptions } = getCookieOptions();
     res.clearCookie('access_token', clearOptions);
     return { message: 'Logged out successfully' };
@@ -75,11 +75,10 @@ export class AuthController {
       
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       
-      // Set httpOnly cookie with the access token
+      
       res.cookie('access_token', data.access_token, getCookieOptions());
 
-      // Redirect to the frontend callback page
-      // The callback page will fetch the user profile using the cookie
+      
       res.redirect(`${frontendUrl}/auth/callback`);
   }
   
