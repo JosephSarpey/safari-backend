@@ -10,6 +10,10 @@ class OrderItemDto {
 
   @IsNumber()
   price: number;
+
+  @IsOptional()
+  @IsString()
+  weight?: string;
 }
 
 export class CreateOrderFromPaymentDto {

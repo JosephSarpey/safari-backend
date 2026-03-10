@@ -111,7 +111,7 @@ export class OrdersService {
   async createFromPayment(data: {
     paymentIntentId: string;
     total: number;
-    items: Array<{ productId: string; quantity: number; price: number }>;
+    items: Array<{ productId: string; quantity: number; price: number; weight?: string }>;
     userId?: string;
   }) {
     try {
@@ -152,6 +152,7 @@ export class OrdersService {
                 productId: item.productId,
                 quantity: item.quantity,
                 price: item.price,
+                weight: item.weight,
               })),
             },
           },

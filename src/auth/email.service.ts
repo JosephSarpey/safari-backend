@@ -139,13 +139,15 @@ export class EmailService {
     try {
       this.logger.log(`Attempting to send order confirmation email to: ${to}`);
       
-      const itemsListHtml = orderDetails.items.map((item: any) => 
-        `<li style="margin-bottom: 5px;">${item.product.name} x ${item.quantity} - <strong>$${(item.price * item.quantity).toFixed(2)}</strong></li>`
-      ).join('');
+      const itemsListHtml = orderDetails.items.map((item: any) => {
+        const weightLabel = item.weight ? ` <span style="color: #888; font-size: 13px;">(${item.weight})</span>` : '';
+        return `<li style="margin-bottom: 5px;">${item.product.name}${weightLabel} x ${item.quantity} - <strong>$${(item.price * item.quantity).toFixed(2)}</strong></li>`;
+      }).join('');
 
-      const itemsListText = orderDetails.items.map((item: any) => 
-        `- ${item.product.name} x ${item.quantity} - $${(item.price * item.quantity).toFixed(2)}`
-      ).join('\n');
+      const itemsListText = orderDetails.items.map((item: any) => {
+        const weightLabel = item.weight ? ` (${item.weight})` : '';
+        return `- ${item.product.name}${weightLabel} x ${item.quantity} - $${(item.price * item.quantity).toFixed(2)}`;
+      }).join('\n');
 
       const text = `Thank you for your order!\n\nYour order #${orderDetails.id} has been placed successfully.\nTotal: $${orderDetails.total.toFixed(2)}\n\nItems:\n${itemsListText}\n\nWe will notify you when your order is on its way.`;
       
@@ -188,16 +190,18 @@ export class EmailService {
     try {
       this.logger.log(`Sending new order notification to owner: ${ownerEmail}`);
       
-      const itemsListHtml = orderDetails.items.map((item: any) => 
-        `<li style="margin-bottom: 10px; padding: 10px; background-color: #f9f9f9; border-left: 3px solid #D4AF37;">
-          <strong>${item.product.name}</strong><br/>
+      const itemsListHtml = orderDetails.items.map((item: any) => {
+        const weightLabel = item.weight ? ` <span style="background-color: #D4AF37; color: #000; padding: 1px 6px; border-radius: 3px; font-size: 12px; font-weight: bold;">${item.weight}</span>` : '';
+        return `<li style="margin-bottom: 10px; padding: 10px; background-color: #f9f9f9; border-left: 3px solid #D4AF37;">
+          <strong>${item.product.name}</strong>${weightLabel}<br/>
           Quantity: ${item.quantity} | Price: $${item.price.toFixed(2)} | Subtotal: <strong>$${(item.price * item.quantity).toFixed(2)}</strong>
-        </li>`
-      ).join('');
+        </li>`;
+      }).join('');
 
-      const itemsListText = orderDetails.items.map((item: any) => 
-        `- ${item.product.name} | Qty: ${item.quantity} | Price: $${item.price.toFixed(2)} | Subtotal: $${(item.price * item.quantity).toFixed(2)}`
-      ).join('\n');
+      const itemsListText = orderDetails.items.map((item: any) => {
+        const weightLabel = item.weight ? ` (${item.weight})` : '';
+        return `- ${item.product.name}${weightLabel} | Qty: ${item.quantity} | Price: $${item.price.toFixed(2)} | Subtotal: $${(item.price * item.quantity).toFixed(2)}`;
+      }).join('\n');
 
       const customerInfo = orderDetails.user 
         ? `Customer: ${orderDetails.user.name} (${orderDetails.user.email})`

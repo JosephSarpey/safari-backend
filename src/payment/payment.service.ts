@@ -1,13 +1,17 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class PaymentService {
   private stripe: Stripe;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private prisma: PrismaService,
+  ) {
     const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     
     if (!stripeSecretKey) {
@@ -112,4 +116,80 @@ export class PaymentService {
       throw new BadRequestException(`Failed to cancel payment intent: ${error.message}`);
     }
   }
+
+  /**
+   * Retry payment for a failed/pending order.
+   * Creates a new Stripe PaymentIntent and updates the Order record with the new intent.
+   */
+  async retryPaymentForOrder(orderId: string) {
+    try {
+      // Find the order
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          items: { include: { product: true } },
+          user: true,
+        },
+      });
+
+      if (!order) {
+        throw new NotFoundException(`Order ${orderId} not found`);
+      }
+
+      // Only allow retry for orders that haven't been paid yet
+      if (order.paymentStatus === 'succeeded') {
+        throw new BadRequestException('This order has already been paid successfully.');
+      }
+
+      const amountInCents = Math.round(order.total * 100);
+
+      // Build metadata with the order items (needed for success page to re-attach items)
+      const itemsMetadata = order.items.map((item: any) => ({
+        id: item.productId,
+        name: item.product.name,
+        quantity: item.quantity,
+        price: item.price,
+        weight: item.weight,
+      }));
+
+      // Create a fresh PaymentIntent for the same total
+      const paymentIntent = await this.stripe.paymentIntents.create({
+        amount: amountInCents,
+        currency: 'usd',
+        metadata: {
+          customerEmail: order.user?.email || '',
+          customerName: order.user?.name || '',
+          userId: order.userId || '',
+          items: JSON.stringify(itemsMetadata),
+          retryForOrderId: orderId,
+        },
+        automatic_payment_methods: { enabled: true },
+        receipt_email: order.user?.email || undefined,
+      });
+
+      // Update the order with the new payment intent — reset to pending so the
+      // success page can re-confirm it after payment completes
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: {
+          paymentIntentId: paymentIntent.id,
+          paymentStatus: 'pending',
+        },
+      });
+
+      console.log(`[PaymentService] Retry payment intent created for order ${orderId}: ${paymentIntent.id}`);
+
+      return {
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        orderId,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException(`Failed to create retry payment intent: ${error.message}`);
+    }
+  }
 }
+

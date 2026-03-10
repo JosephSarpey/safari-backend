@@ -33,12 +33,66 @@ export class DashboardService {
       }
     });
 
+    const recentOrders = await this.prisma.order.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        total: true,
+        createdAt: true,
+        user: {
+          select: { name: true },
+        },
+      },
+    });
+
+    const recentActivity = recentOrders.map((order) => ({
+      id: order.id,
+      customerName: order.user?.name || 'Guest',
+      total: order.total,
+      createdAt: order.createdAt,
+    }));
+
+    // Chart 1: Order status breakdown
+    const allStatuses = ['Pending', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered', 'Completed', 'Cancelled'];
+    const statusCounts = await Promise.all(
+      allStatuses.map((s) => this.prisma.order.count({ where: { status: s } }))
+    );
+    const orderStatusChart = allStatuses
+      .map((status, i) => ({ name: status, value: statusCounts[i] }))
+      .filter((s) => s.value > 0);
+
+    // Chart 2: Customer type split
+    const customerCount = await this.prisma.user.count({ where: { role: 'CUSTOMER' } });
+    const companyCount = await this.prisma.user.count({ where: { role: 'COMPANY' } });
+    const customerTypeChart = [
+      { name: 'Individual', value: customerCount },
+      { name: 'Company', value: companyCount },
+    ].filter((s) => s.value > 0);
+
+    // Chart 3: Retention — users with >1 order are returning
+    const usersWithOrders = await this.prisma.user.findMany({
+      select: { _count: { select: { orders: true } } },
+    });
+    const returningUsers = usersWithOrders.filter((u) => u._count.orders > 1).length;
+    const newUsers = usersWithOrders.filter((u) => u._count.orders === 1).length;
+    const retentionChart = [
+      { name: 'Returning', value: returningUsers },
+      { name: 'New', value: newUsers },
+    ].filter((s) => s.value > 0);
+
     return {
       revenue: totalRevenue,
       activeOrders: activeOrdersCount,
       totalOrders: totalOrdersCount,
       lowStock: lowStockCount,
-      revenueChart: await this.getMonthlyRevenue()
+      revenueChart: await this.getMonthlyRevenue(),
+      recentActivity,
+      analyticsCharts: {
+        orderStatus: orderStatusChart,
+        customerType: customerTypeChart,
+        retention: retentionChart,
+      },
     };
   }
 

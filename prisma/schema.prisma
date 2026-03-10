@@ -136,6 +136,7 @@ model OrderItem {
   id        String  @id @default(uuid())
   quantity  Int
   price     Float
+  weight    String?
   orderId   String
   order     Order   @relation(fields: [orderId], references: [id])
   productId String

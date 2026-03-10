@@ -99,6 +99,11 @@ export class PaymentController {
     return { received: true };
   }
 
+  @Post('retry/:orderId')
+  async retryPayment(@Param('orderId') orderId: string) {
+    return this.paymentService.retryPaymentForOrder(orderId);
+  }
+
   @Post('cancel/:id')
   async cancelPaymentIntent(@Param('id') id: string) {
     return this.paymentService.cancelPaymentIntent(id);
